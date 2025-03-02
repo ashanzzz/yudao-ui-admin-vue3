@@ -1,0 +1,44 @@
+name: Vue3 Build and Upload to WebDAV
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build with npm
+        run: npm run build:dev
+
+      - name: Archive dist directory
+        run: zip -r dist.zip dist
+
+      - name: Upload build to WebDAV
+        env:
+          WEBDAV_USER: ${{ secrets.WEBDAV_USER }}
+          WEBDAV_PASS: ${{ secrets.WEBDAV_PASS }}
+        run: |
+          FILE_NAME="yudao-ui-admin-vue3.zip"
+          TARGET_DIR="https://alist.335356119.xyz/dav/群晖/home/download/yudao"
+          TARGET_URL="${TARGET_DIR}/${FILE_NAME}"
+          
+          echo "Creating directory on WebDAV (if not exists): ${TARGET_DIR}"
+          curl -X MKCOL -u "$WEBDAV_USER:$WEBDAV_PASS" "${TARGET_DIR}" || echo "Directory may already exist or could not be created"
+          
+          echo "Deleting old file (if exists) from WebDAV: ${TARGET_URL}"
+          curl -X DELETE --fail -u "$WEBDAV_USER:$WEBDAV_PASS" "${TARGET_URL}" || echo "No old file found or deletion failed"
+          
+          echo "Uploading new build zip to WebDAV: ${TARGET_URL}"
+          curl --progress-bar -T "dist.zip" -u "$WEBDAV_USER:$WEBDAV_PASS" "${TARGET_URL}"
